@@ -26,7 +26,7 @@ const MainLayout = () => {
   );
 };
 
-// ✅ 通用刷新函数（调用 /api/query 执行 `.tables`）
+// ✅ Generic refresh function (call /api/query to execute `.tables`)
 const refreshTables = async (
   setTables: React.Dispatch<React.SetStateAction<TableInfo[]>>
 ) => {
@@ -39,7 +39,7 @@ const refreshTables = async (
 
     const text = await res.text();
 
-    // ✅ 解析结果，例如：
+ 
     // Students : { StudentID, Name, Major }
     // Courses  : { CourseCode, Title, CreditHours }
     const lines = text.split("\n").filter((l) => l.includes(":"));

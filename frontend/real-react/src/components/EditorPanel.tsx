@@ -1,33 +1,35 @@
 // src/components/EditorPanel.tsx
+"use client"
+
 import { useState } from "react"
-import { Button }   from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
+import RealEditor     from "@/components/RealEditor"
+import { Button }     from "@/components/ui/button"
 
 const ENDPOINT = "http://localhost:8080/api/query"
 
-const EditorPanel = ({ onRefreshTables }: { onRefreshTables?: () => void }) => {
-  const [expr, setExpr] = useState("")
-  const [output, setOutput] = useState<string>()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>()
+type Props = { onRefreshTables?: () => void }
 
+export default function EditorPanel({ onRefreshTables }: Props) {
+  const [expr,   setExpr]   = useState("")      // 编辑器内容
+  const [output, setOutput] = useState<string>()// 查询结果
+  const [error,  setError]  = useState<string>()// 错误消息
+  const [loading, setLoading] = useState(false)
+
+  /* 发送到后端执行查询 */
   async function runQuery() {
     if (!expr.trim()) return
     setLoading(true); setError(undefined); setOutput(undefined)
 
     try {
-      const res = await fetch(ENDPOINT, {
-        method: "POST",
+      const res  = await fetch(ENDPOINT, {
+        method : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expression: expr })
+        body   : JSON.stringify({ expression: expr }),
       })
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const text = await res.text()
       setOutput(text)
-
-      // ✅ 查询成功后，刷新表结构
-      onRefreshTables?.()
+      onRefreshTables?.()                 // 刷新侧边表结构
     } catch (e: any) {
       setError(e.message ?? "Unknown error")
     } finally {
@@ -35,15 +37,17 @@ const EditorPanel = ({ onRefreshTables }: { onRefreshTables?: () => void }) => {
     }
   }
 
+  /* --------------------- UI --------------------- */
   return (
-    <section className="flex-1 p-4 bg-white border border-gray-200">
-      <h2 className="text-lg font-semibold mb-2">Query Editor</h2>
+    <section className="flex-1 p-4 bg-white border border-gray-200 rounded-md">
+      <h2 className="text-lg font-semibold mb-3">Query&nbsp;Editor</h2>
 
-      <Textarea
-        placeholder="Write your relational-algebra query here..."
-        className="h-64"
+      {/* ▶ CodeMirror 6 编辑器 */}
+      <RealEditor
         value={expr}
-        onChange={e => setExpr(e.target.value)}
+        onChange={setExpr}
+        className="min-h-[16rem] w-full rounded-md border border-input bg-transparent
+                   shadow-sm focus-visible:ring-2 focus-visible:ring-ring"
       />
 
       <Button
@@ -55,12 +59,14 @@ const EditorPanel = ({ onRefreshTables }: { onRefreshTables?: () => void }) => {
         {loading ? "Running…" : "Execute Query"}
       </Button>
 
+      {/* 错误消息 */}
       {error && (
         <pre className="mt-4 p-3 bg-red-50 text-red-600 rounded border">
           {error}
         </pre>
       )}
 
+      {/* 查询结果 */}
       {output !== undefined && !error && (
         <pre className="mt-4 p-3 bg-gray-50 rounded border whitespace-pre-wrap">
           {output}
@@ -69,5 +75,3 @@ const EditorPanel = ({ onRefreshTables }: { onRefreshTables?: () => void }) => {
     </section>
   )
 }
-
-export default EditorPanel

@@ -1,98 +1,97 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Card }   from "@/components/ui/card"
 
 type TableInfo = {
-  name: string;
-  attributes: string[];
-};
+  name: string
+  attributes: string[]
+}
 
 const Sidebar = ({
   tables,
-  setTables,
+  setTables
 }: {
-  tables: TableInfo[];
-  setTables: React.Dispatch<React.SetStateAction<TableInfo[]>>;
+  tables: TableInfo[]
+  setTables: React.Dispatch<React.SetStateAction<TableInfo[]>>
 }) => {
-  const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [loading, setLoading] = useState(false)
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
-  // ✅ 从服务器查询当前表结构（.tables）
+
   const fetchCurrentTables = async () => {
     try {
       const res = await fetch("http://localhost:8080/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expression: ".tables" }),
-      });
+        body: JSON.stringify({ expression: ".tables" })
+      })
 
-      const text = await res.text();
-      const lines = text.split("\n").filter((l) => l.includes(":"));
-      const parsed: TableInfo[] = lines.map((line) => {
-        const [namePart, attrsPart] = line.split(":");
-        const name = namePart.trim();
+      const text  = await res.text()
+      const lines = text.split("\n").filter(l => l.includes(":"))
+      const parsed: TableInfo[] = lines.map(line => {
+        const [namePart, attrsPart] = line.split(":")
+        const name  = namePart.trim()
         const attrs = attrsPart
           .replace(/[{}]/g, "")
           .split(",")
-          .map((s) => s.trim());
-        return { name, attributes: attrs };
-      });
+          .map(s => s.trim())
+        return { name, attributes: attrs }
+      })
 
-      setTables(parsed);
-      localStorage.setItem("realide_tables", JSON.stringify(parsed));
+      setTables(parsed)
+
+      /* 
+      localStorage.setItem("realide_tables", JSON.stringify(parsed))
+      */
     } catch (err) {
-      console.error("❌ Failed to fetch tables:", err);
+      console.error("❌ Failed to fetch tables:", err)
     }
-  };
+  }
 
-  // ✅ 页面加载时从 localStorage 恢复（可选）
-  useEffect(() => {
-    const saved = localStorage.getItem("realide_tables");
-    if (saved) {
-      try {
-        const parsed: TableInfo[] = JSON.parse(saved);
-        setTables(parsed);
-      } catch (e) {
-        console.warn("Failed to parse saved tables:", e);
-      }
-    }
-  }, [setTables]);
 
-  const handleClick = () => inputRef.current?.click();
+  // useEffect(() => {
+  //   const saved = localStorage.getItem("realide_tables")
+  //   if (saved) {
+  //     try {
+  //       const parsed: TableInfo[] = JSON.parse(saved)
+  //       setTables(parsed)
+  //     } catch (e) {
+  //       console.warn("Failed to parse saved tables:", e)
+  //     }
+  //   }
+  // }, [setTables])
+
+  const handleClick = () => inputRef.current?.click()
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-  
-    const formData = new FormData();
-    formData.append("file", file);
-  
-    setLoading(true);
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append("file", file)
+
+    setLoading(true)
     try {
       const res = await fetch("http://localhost:8080/api/load", {
         method: "POST",
-        body: formData,
-      });
-  
-      if (!res.ok) throw new Error("Load failed");
-  
-      // ✅ 加载成功后立即查询最新表结构
-      await fetchCurrentTables();
-    } catch (err) {
-      console.error("❌ Load failed:", err);
-    } finally {
-      setLoading(false);
-  
-      // ✅ 关键：重置 input 值，允许重复选择相同文件
-      if (inputRef.current) {
-        inputRef.current.value = "";
-      }
-    }
-  };
-  
+        body: formData
+      })
 
+      if (!res.ok) throw new Error("Load failed")
+
+     
+      await fetchCurrentTables()
+    } catch (err) {
+      console.error("❌ Load failed:", err)
+    } finally {
+      setLoading(false)
+      if (inputRef.current) inputRef.current.value = "" 
+    }
+  }
+
+  /* --------------------- UI --------------------- */
   return (
     <aside className="w-64 bg-background border-r p-4 flex flex-col gap-4">
       <Button onClick={handleClick} className="w-full" disabled={loading}>
@@ -113,7 +112,7 @@ const Sidebar = ({
           {tables.length === 0 ? (
             <li className="text-muted-foreground">No tables loaded</li>
           ) : (
-            tables.map((t) => (
+            tables.map(t => (
               <li
                 key={t.name}
                 className="p-2 rounded-md hover:bg-muted cursor-pointer"
@@ -125,7 +124,7 @@ const Sidebar = ({
         </ul>
       </Card>
     </aside>
-  );
-};
+  )
+}
 
-export default Sidebar;
+export default Sidebar
