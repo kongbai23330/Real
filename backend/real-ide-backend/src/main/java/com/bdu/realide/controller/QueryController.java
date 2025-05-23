@@ -22,28 +22,28 @@ public class QueryController {
         this.real = real;
     }
 
-    /** 执行查询 */
+    /** Execution of queries */
     @PostMapping("/query")
     public ResponseEntity<String> run(@RequestBody Map<String, String> body) throws Exception {
         String expr = body.getOrDefault("expression", "");
         return ResponseEntity.ok(real.sendQuery(expr));
     }
 
-    /** 加载数据库 + 提取表结构（合并后的新接口） */
+   /** Load database + extract table structure (new interface after merge) */
     @PostMapping("/load")
     public ResponseEntity<Map<String, Object>> loadAndExtract(@RequestParam("file") MultipartFile file) throws IOException {
         if (file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "No file uploaded."));
         }
 
-        // 写入临时文件
+ 
         File tempFile = File.createTempFile("real-db-", ".json");
         file.transferTo(tempFile);
 
-        // 调用 .load 命令
+        // .load 
         real.loadDatabase(tempFile);
 
-        // 解析 JSON 提取表信息
+     
         ObjectMapper mapper = new ObjectMapper();
         JsonNode root = mapper.readTree(tempFile);
         JsonNode tablesNode = root.path("tables");

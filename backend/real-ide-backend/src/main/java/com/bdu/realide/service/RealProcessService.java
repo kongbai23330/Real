@@ -17,28 +17,28 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RealProcessService {
 
-    /* -------- 可调参数 -------- */
-    private static final int    TIMEOUT_MS = 4_000;   // 单次查询滑动超时
-    private static final String PROMPT     = ">>>";   // REAL 提示符
-    // 放在类的 field 区域
+    /* -------- Tunable parameters -------- */
+    private static final int    TIMEOUT_MS = 4_000;   // Timeout per query (sliding)
+    private static final String PROMPT     = ">>>";   // REAL prompt
+    // Declared at the field level
     private static final java.util.regex.Pattern ANSI =
             java.util.regex.Pattern.compile("\u001B\\[[0-9;?]*[ -/]*[@-~]");
     private static final java.util.regex.Pattern PROMPT_LINE =
             java.util.regex.Pattern.compile("^\\$\\d+\\s+>>>.*$");
-    /* -------- 进程 & 队列 -------- */
+    /* -------- Process & Queue -------- */
     private Process                 real;
     private BufferedWriter          realIn;
     private final LinkedBlockingQueue<String> outQ = new LinkedBlockingQueue<>();
     private File lastLoadedJson = null;
 
-    /* ========== 启动 ========== */
+    /* ========== Start ========== */
     @PostConstruct
     public void start() throws Exception {
 
         File jar = new File("real-0.8-SNAPSHOT.jar");
         if (!jar.exists()) throw new FileNotFoundException(jar.getAbsolutePath());
 
-        /* 伪终端启动 —— 让 REAL 认为自己连在 TTY 上 */
+        /* Launch pseudo-terminal — make REAL think it's connected to TTY */
         List<String> cmd = List.of("java", "-jar", jar.getAbsolutePath());
 
         Map<String,String> env = new HashMap<>(System.getenv());
@@ -67,13 +67,13 @@ public class RealProcessService {
         System.out.println("[REAL] interpreter READY (PTY)");
     }
 
-    /* ========== 查询 ========== */
+    /* ========== Query ========== */
     public String sendQuery(String expr) throws IOException {
 
-        /* .command 原样发送；RA 表达式补分号 */
+        /* .command sent as-is; RA expression needs semicolon */
         if (!expr.startsWith(".")) expr = expr.trim().endsWith(";") ? expr : expr + ';';
 
-        realIn.write(expr + "\r\n");                // CRLF 立即写出
+        realIn.write(expr + "\r\n");                // CRLF for immediate write
         realIn.flush();
 
         long deadline = System.currentTimeMillis() + TIMEOUT_MS;
@@ -85,33 +85,34 @@ public class RealProcessService {
             if (line == null) continue;
 
             if (line.trim().endsWith(PROMPT)) {
-                if (firstPrompt) {                  // 指令已接收
+                if (firstPrompt) {                  // Instruction accepted
                     firstPrompt = false;
                     deadline = System.currentTimeMillis() + TIMEOUT_MS;
                     continue;
                 }
-                break;                              // 第二次 >>> 结束
+                break;                              // Second >>> means done
             }
             if (result.length() > 0) result.append('\n');
             result.append(line);
-            deadline = System.currentTimeMillis() + TIMEOUT_MS;   // 滑动超时
+            deadline = System.currentTimeMillis() + TIMEOUT_MS;   // sliding timeout
         }
         return result.length() == 0 ? "(no output)" : result.toString();
     }
+
     public void loadDatabase(File jsonFile) throws IOException {
         if (!jsonFile.exists()) throw new FileNotFoundException(jsonFile.getAbsolutePath());
 
-        // ✅ 每次加载前先清空旧状态（如果支持 .reset）
+        // ✅ Reset old state before loading (if .reset is supported)
         try {
             sendQuery(".reset");
         } catch (Exception e) {
             System.err.println("[REAL] .reset failed (maybe unsupported): " + e.getMessage());
         }
 
-        // 加载新 JSON
+        // Load new JSON
         sendQuery(".load " + jsonFile.getAbsolutePath());
 
-        // ✅ 如果你要记住路径，可以保留这一行：
+        // ✅ If you want to remember the path, keep this line:
         lastLoadedJson = jsonFile.getAbsoluteFile();
     }
 
@@ -123,13 +124,13 @@ public class RealProcessService {
         sendQuery(".add " + tableName + "(" + attrList + ") : " + path);
     }
 
-    /* ========== 关闭 ========== */
+    /* ========== Shutdown ========== */
     @PreDestroy
     public void stop() { if (real != null) real.destroyForcibly(); }
 
-    /* ---------- 工具 ---------- */
+    /* ---------- Utilities ---------- */
 
-    /** 把 stdout 拆成行（\r 或 \n）；遇到 >>> 也即刻 flush */
+    /** Split stdout into lines (\r or \n); flush immediately on >>> */
     private void tail(InputStream in) {
         StringBuilder buf = new StringBuilder();
         try {
@@ -147,43 +148,38 @@ public class RealProcessService {
         if (buf.length() == 0) return;
         String s = buf.toString();
 
-        // ① 去掉 ANSI 控制符
+        // ① Remove ANSI control characters
         s = ANSI.matcher(s).replaceAll("");
 
-        // ② 去掉带 prompt 的前缀行
+        // ② Remove lines with prompt echoes
         if (PROMPT_LINE.matcher(s).find()) {
             buf.setLength(0);
             return;
         }
 
-        // ✅ 更通用：屏蔽所有 “数字 + ... + 任意内容” 的回显
+        // ✅ More general: block all "number + ... + anything" echoes
         if (s.trim().matches("^\\d+\\s*\\.\\.\\.\\s*.*$")) {
             buf.setLength(0);
             return;
         }
 
-
-        // ③ 去掉回显命令行
+        // ③ Remove echoed command lines
         if (s.trim().matches("^\\d+\\s+\\.\\w+(\\s+\\S+)?$")) {
             buf.setLength(0);
             return;
         }
 
-        // ④ 清除除换行/制表外的控制字符
+        // ④ Remove control characters except newline/tab
         s = s.replaceAll("[\\p{Cntrl}&&[^\\r\\n\\t]]", "");
 
-// ✅ 彻底删除所有非 ASCII 可打印字符（包括乱码、问号、方块等）
+        // ✅ Remove all non-ASCII printable characters (including garbled symbols, boxes)
         s = s.replaceAll("[^\\x20-\\x7E\\r\\n\\t]", "");
-// 删除所有 ASCII 问号（真正的 ?）
+        // Remove literal ASCII question marks
         s = s.replace("?", "");
-
-
-
 
         outQ.offer(s);
         buf.setLength(0);
     }
-
 
     private String poll(long ms) {
         try { return outQ.poll(ms, TimeUnit.MILLISECONDS); }
