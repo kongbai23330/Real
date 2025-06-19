@@ -2,3 +2,10 @@ StudentID,StudentName,Major
 S001,Alice,Computer Science
 S002,Bob,Mathematics
 S003,Charlie,Physics
+S004,Diana,Mathematics
+S005,Eve,Computer Science
+S006,Frank,Mathematics
+S007,Grace,Physics
+S001,Alice,Computer Science
+S002,Bob,Mathematics
+S007,Grace,Physics

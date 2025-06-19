@@ -30,7 +30,7 @@ public class RealProcessService {
     private BufferedWriter          realIn;
     private final LinkedBlockingQueue<String> outQ = new LinkedBlockingQueue<>();
     private File lastLoadedJson = null;
-
+    private volatile String firstHeader = null;
     /* ========== Start ========== */
     @PostConstruct
     public void start() throws Exception {
@@ -116,6 +116,7 @@ public class RealProcessService {
 
         // ✅ If you want to remember the path, keep this line:
         lastLoadedJson = jsonFile.getAbsoluteFile();
+        firstHeader = null;
     }
 
 
@@ -178,6 +179,13 @@ public class RealProcessService {
         s = s.replaceAll("[^\\x20-\\x7E\\r\\n\\t]", "");
         // Remove literal ASCII question marks
         s = s.replace("?", "");
+
+        if (s.trim().equals("Q")) {
+            buf.setLength(0);
+            return;
+        }
+
+        String trimmed = s.trim();
 
         outQ.offer(s);
         buf.setLength(0);
